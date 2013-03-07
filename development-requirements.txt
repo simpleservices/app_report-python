@@ -1,0 +1,10 @@
+# dependencies file, to install run:
+# $ sudo pip install -r requirements_development.txt
+
+-r requirements.txt
+
+
+# python style guide checker, eg:
+# $ clear; pep8 --first --show-source .
+
+pep8>=1.4.5
