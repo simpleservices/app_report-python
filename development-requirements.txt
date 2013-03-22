@@ -8,3 +8,4 @@
 # $ clear; pep8 --first --show-source .
 
 pep8>=1.4.5
+fabric>=1.6
