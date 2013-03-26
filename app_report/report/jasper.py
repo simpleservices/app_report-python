@@ -35,7 +35,7 @@ class Jasper(object):
 
     def validates_all_attributes(self):
         for key in self.attribute_keys:
-            self.validates_presence_of(key)
+            getattr(self, 'validates_%s' % key)()
 
     # alias
     validates = validates_all_attributes

@@ -12,6 +12,7 @@ import base64
 
 import app_report
 from app_report import AppReport
+from app_report.helpers import jasper_web2py
 import test
 
 
@@ -450,3 +451,111 @@ class JasperAPITestCase(HelperTestCase):
         given_pdf_raw = self.api.build(self.report)
 
         self.assertEqual(expected_pdf_raw, given_pdf_raw)
+
+
+class JasperBaseHelperTestCase(HelperTestCase):
+
+    def setUp(self):
+
+        self.default_report_options = {
+            'template_name': 'products',
+            'data': '<?xml version="1.0" encoding="utf-8"?><root><node></node></root>'
+        }
+
+        self.helper = app_report.helpers.jasper_report
+
+    def test_jasper_report_type(self):
+        self.assertIsInstance(self.helper, app_report.helpers.jasper_base.JasperBase)
+
+    @httprettified
+    def test_default_attributes(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+        self.helper(**self.default_report_options)
+
+        self.assertEqual('xml', self.helper.data_type)
+        self.assertEqual({}, self.helper.args)
+
+    @httprettified
+    def test_default_xpath_expression(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+        self.helper(**self.default_report_options)
+
+        self.assertEqual('/products/product', self.helper.xpath_expression)
+
+    @httprettified
+    def test_overwrite_default_attributes(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+
+        helper = app_report.helpers.jasper_report
+        report_options = {
+            'template_name': 'some_report',
+            'data': '<?xml version="1.0" encoding="utf-8"?><root><node></node></root>',
+
+            # default attributes
+            'data_type': 'empty',
+            'args': {'foo': 'bar'},
+            'xpath_expression': '/root/node'
+        }
+
+        helper(**report_options)
+        self.assertEqual('empty', helper.data_type)
+        self.assertEqual({'foo': 'bar'}, helper.args)
+        self.assertEqual('/root/node', helper.xpath_expression)
+
+    @httprettified
+    def test_assignment_of_attributes(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+
+        self.helper(**self.default_report_options)
+
+        for key in self.default_report_options:
+            self.assertTrue(hasattr(self.helper, key), 'helper must respond to %s' % key)
+            self.assertEqual(getattr(self.helper, key), self.default_report_options[key])
+
+    @httprettified
+    def test_build(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+
+        expected_pdf_raw = self.fixture('report.pdf').read()
+        given_pdf_raw = self.helper(**self.default_report_options)
+
+        self.assertEqual(expected_pdf_raw, given_pdf_raw)
+
+
+class JasperWeb2pyHelperTestCase(JasperBaseHelperTestCase):
+
+    # inherits all tests from JasperBaseHelperTestCase
+
+    def setUp(self):
+        JasperBaseHelperTestCase.setUp(self)
+
+        # overwrittes helper, because it tests will never run inside a web2py app
+        self.helper = jasper_web2py.JasperWeb2py()
+
+        self.fake_web2py_response = test.app_report.helpers.FakeWeb2pyResponse()
+
+    def test_jasper_report_type(self):
+        self.assertIsInstance(self.helper, app_report.helpers.jasper_web2py.JasperWeb2py)
+
+    @httprettified
+    def test_response_headers_change(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+        self.helper(response=self.fake_web2py_response, **self.default_report_options)
+
+        expected_disposition = 'attachment; filename=%s.pdf' % (
+            self.default_report_options['template_name']
+        )
+
+        self.assertEqual(self.fake_web2py_response.headers['Content-Type'], 'application/pdf')
+        self.assertEqual(self.fake_web2py_response.headers['Content-Disposition'], expected_disposition)
+
+    @httprettified
+    def test_overwrite_content_disposition_(self):
+        self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+        self.helper(response=self.fake_web2py_response, content_disposition='foo', **self.default_report_options)
+
+        expected_disposition = 'foo; filename=%s.pdf' % (
+            self.default_report_options['template_name']
+        )
+
+        self.assertEqual(self.fake_web2py_response.headers['Content-Disposition'], expected_disposition)

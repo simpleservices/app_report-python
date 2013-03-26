@@ -21,6 +21,7 @@ import report
 import api
 from signer import Signer
 from decoder import Decoder
+import helpers
 
 
 class AppReport:
