@@ -1,6 +1,6 @@
 ## app_report-python  
   
-app_report-python is a Python client to the [AppReport API](http://reports.simpleservic.es/), it allows you to generate pdf reports based on Jasper library in a really simple way. 
+app_report-python is a Python client to the [AppReport API](http://reports.simpleservic.es/), it allows you to generate pdf reports based on Jasper library in a simple way. 
 
 ### Installation  
 
@@ -22,11 +22,11 @@ app_report-python is a Python client to the [AppReport API](http://reports.simpl
 
 * This example assumes that you already drawn your report using some tool like [i-report designer](http://community.jaspersoft.com/project/ireport-designer) and uploaded the .jrxml file to the [AppReport site](http://reports.simpleservic.es/), as a "report template",  
     
-  to make the things easy, we did it for you :) yay donuts to us.
+  to make the things easy, we did it for you :) yay donuts for us.
 
   ```python
   import app_report
-  from app_report.helpers import jasper_report
+  from app_report.helpers.reports import jasper_report
   from urllib2 import urlopen
 
   app_report.AppReport.configure({
@@ -36,7 +36,7 @@ app_report-python is a Python client to the [AppReport API](http://reports.simpl
   })
 
   xml_data = urlopen('http://reports.simpleservic.es/sample_resources/products.xml').read()
-  report = jasper_report(template_name='products', data=xml_data)
+  report = jasper_report(template_name='products', data=xml_data, xpath_expression='/products/product')
 
   open('report.pdf', 'w').write(report)
     
@@ -49,6 +49,7 @@ You can contribute sending pull requests, don't forget to write tests for your c
 
 ```console
 $ pip install -r development-requirements.txt  
+$ pip install -r test-requirements.txt  
 
 $ fab test
 

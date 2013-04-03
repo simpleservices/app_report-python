@@ -6,13 +6,21 @@ import simplejson as json
 import requests
 from httpretty import HTTPretty
 from httpretty import httprettified
-import os.path
+import os
 from time import time
 import base64
+import sys
+
+# Once this tests will never run inside a web2py app, we need to append
+# the web2py path to os.path, so the modules will be able to import web2py modules
+#
+# It assumes that web2py is located at $HOME/projects/web2py
+sys.path.append(os.path.join(os.getenv('HOME'), 'projects/web2py'))
 
 import app_report
 from app_report import AppReport
-from app_report.helpers import jasper_web2py
+from app_report import helpers
+
 import test
 
 
@@ -462,31 +470,28 @@ class JasperBaseHelperTestCase(HelperTestCase):
             'data': '<?xml version="1.0" encoding="utf-8"?><root><node></node></root>'
         }
 
-        self.helper = app_report.helpers.jasper_report
-
-    def test_jasper_report_type(self):
-        self.assertIsInstance(self.helper, app_report.helpers.jasper_base.JasperBase)
+        self.helper = helpers.reports.jasper_base.JasperBase()
 
     @httprettified
     def test_default_attributes(self):
         self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
         self.helper(**self.default_report_options)
 
-        self.assertEqual('xml', self.helper.data_type)
-        self.assertEqual({}, self.helper.args)
+        self.assertEqual('xml', self.helper.attributes['data_type'])
+        self.assertEqual({}, self.helper.attributes['args'])
 
     @httprettified
     def test_default_xpath_expression(self):
         self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
         self.helper(**self.default_report_options)
 
-        self.assertEqual('/products/product', self.helper.xpath_expression)
+        self.assertEqual('/products/product', self.helper.attributes['xpath_expression'])
 
     @httprettified
     def test_overwrite_default_attributes(self):
         self.stub_post('/api/v1/factory/jasper/build.json', json.load(self.fixture('report.json')))
+        helper = app_report.helpers.reports.jasper_report
 
-        helper = app_report.helpers.jasper_report
         report_options = {
             'template_name': 'some_report',
             'data': '<?xml version="1.0" encoding="utf-8"?><root><node></node></root>',
@@ -498,9 +503,10 @@ class JasperBaseHelperTestCase(HelperTestCase):
         }
 
         helper(**report_options)
-        self.assertEqual('empty', helper.data_type)
-        self.assertEqual({'foo': 'bar'}, helper.args)
-        self.assertEqual('/root/node', helper.xpath_expression)
+
+        self.assertEqual('empty', helper.attributes['data_type'])
+        self.assertEqual({'foo': 'bar'}, helper.attributes['args'])
+        self.assertEqual('/root/node', helper.attributes['xpath_expression'])
 
     @httprettified
     def test_assignment_of_attributes(self):
@@ -509,8 +515,8 @@ class JasperBaseHelperTestCase(HelperTestCase):
         self.helper(**self.default_report_options)
 
         for key in self.default_report_options:
-            self.assertTrue(hasattr(self.helper, key), 'helper must respond to %s' % key)
-            self.assertEqual(getattr(self.helper, key), self.default_report_options[key])
+            self.assertTrue(key in self.helper.attributes, 'helper attributes must include %s' % key)
+            self.assertEqual(self.helper.attributes[key], self.default_report_options[key])
 
     @httprettified
     def test_build(self):
@@ -528,14 +534,8 @@ class JasperWeb2pyHelperTestCase(JasperBaseHelperTestCase):
 
     def setUp(self):
         JasperBaseHelperTestCase.setUp(self)
-
-        # overwrittes helper, because it tests will never run inside a web2py app
-        self.helper = jasper_web2py.JasperWeb2py()
-
+        self.helper = helpers.reports.jasper_web2py.JasperWeb2py()
         self.fake_web2py_response = test.app_report.helpers.FakeWeb2pyResponse()
-
-    def test_jasper_report_type(self):
-        self.assertIsInstance(self.helper, app_report.helpers.jasper_web2py.JasperWeb2py)
 
     @httprettified
     def test_response_headers_change(self):
@@ -559,3 +559,34 @@ class JasperWeb2pyHelperTestCase(JasperBaseHelperTestCase):
         )
 
         self.assertEqual(self.fake_web2py_response.headers['Content-Disposition'], expected_disposition)
+
+
+class XmlBaseHelperTestCase(HelperTestCase):
+
+    def setUp(self):
+        self.helper = helpers.serializers.xml_base.XmlBase.rows_to_xml
+
+    def test_rows_to_xml(self):
+        with self.assertRaisesRegexp(NotImplementedError, "rows_to_xml must be overwritten in a child class!"):
+                self.helper()
+
+
+class XmlWeb2pyHelperTestCase(XmlBaseHelperTestCase):
+
+    # inherits all tests from XmlBaseHelperTestCase
+
+    def setUp(self):
+        XmlBaseHelperTestCase.setUp(self)
+        self.helper = helpers.serializers.xml_web2py.XmlWeb2py.rows_to_xml
+
+    def test_rows_to_xml(self):
+        expected_xml = '<products><product><id>1</id><name>foo</name><quantity>3</quantity>' + \
+                       '<price>2.1</price></product></products>'
+
+        rows = [{'id': 1, 'name': 'foo', 'quantity': 3, 'price': 2.1}]
+        fields = ['id', 'name', 'quantity', 'price']
+
+        given_xml = self.helper(rows, fields, 'products', 'product')
+        self.assertEqual(str(given_xml), expected_xml)
+
+    # TODO test response headers

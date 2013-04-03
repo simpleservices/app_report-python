@@ -9,6 +9,10 @@ class JasperWeb2py(JasperBase):
 
         if response:
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = '%s; filename=%s.pdf' % (content_disposition, self.template_name)
+
+            response.headers['Content-Disposition'] = '%s; filename=%s.pdf' % (
+                content_disposition,
+                self.attributes['template_name']
+            )
 
         return raw

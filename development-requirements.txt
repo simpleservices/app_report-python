@@ -1,6 +1,3 @@
-# dependencies file, to install run:
-# $ sudo pip install -r development-requirements.txt
-
 -r requirements.txt
 
 # python style guide checker, eg:
